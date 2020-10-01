@@ -3,14 +3,17 @@
 #DEPENDENCY CHECK SCRIPT
 
 #Seurat software is dependent on the following packages:
-#Seurat
+#Seurat (httr and plotly are dependecies of seurat)
 #GGplot2 (installed)
 #Dplyr
 #Patchwork
 
-dependencies <- c("Seurat","patchwork","dplyr","ggplot2", "sctransform") #All required pacakges
+
+dependencies <- c("RCurl", "httr", "plotly", "Seurat","patchwork","dplyr") #All required pacakges
 
 #We create the function to install all the packages if missing
+
+print("Checking dependencies...")``
 
 use.packages <- function(pkgs){
   new.pkgs <- pkgs[!(pkgs %in% installed.packages()[,"Package"])] #check the list of installed packages
@@ -21,4 +24,4 @@ use.packages <- function(pkgs){
 
 #If they are not missing, the use of the function use.packages will load them
 
-invisible(use.packages(dependencies)) #Now we use the function with the packages
+use.packages(dependencies) #Now we use the function with the packages

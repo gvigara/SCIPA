@@ -23,6 +23,7 @@ sub ChaosMatrixGeneration{
     my $cellranger; #stores the cellranger command
     my $localmem;
     my $localcores;
+    my $genome_file_name;
 
     #And begin with the proper analysis script
 
@@ -60,9 +61,9 @@ sub ChaosMatrixGeneration{
             $human_genome_selection = <STDIN>; #we allow the user to choose
             if(length($wget_path) != 0){ #If wget is absent, the system will download the genome with curl
                 if ($human_genome_selection == 1){ #If the first option is selected, we donwload the selected genome
-                    if(-d "./refdata-cellranger-GRCh38-3\.0\.0"){#This checks if the process has been already done although
+                    if(-d "./$variables{'GRCH38_file'}"){#This checks if the process has been already done although
                     #the user didnt specify it on the options file
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'GRCH38_file'}";
                         print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
                         print "\nSkipping...\n";
                     }
@@ -70,32 +71,33 @@ sub ChaosMatrixGeneration{
                         print "\nDownloading Human GRCh38 genome...\n";
                         #We download the genome. -C is for continue the donwload the file
                         #In case an incomplete download took place, this time the genome will donwload again. 
-                        qx/wget -c http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz/;
+                        qx/wget -c $variables{"GRCH38_link"}/;
                         print "\nDecrompressing the genome\n";
                         #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz/;
+
+                        qx/tar -xzvf $variables{"GRCH38_file"}\.tar\.gz/;
                         #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'GRCH38_file'}";
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
                         print $variables{"Cellranger_ref"};
                     }
                 }
                 elsif ($human_genome_selection == 2){
-                    if(-d "./refdata-cellranger-hg19-3\.0\.0"){
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
+                    if(-d "./$variables{'hg19_file'}"){
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'hg19_file'}";
                         print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
                         print "\nSkipping...\n";
                     }
                     else{
                         print "\nDownloading Human hg19 genome...\n";
                         #We download the genome
-                        qx/wget -c http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-hg19-3\.0\.0\.tar\.gz/;
+                        qx/wget -c $variables{"hg19_link"}/;
                         print "\nDecrompressing the genome\n";
                         #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-hg19-3\.0\.0\.tar\.gz/;
+                        qx/tar -xzvf $variables{"hg19_file"}\.tar\.gz/;
                         #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'hg19_file'}";
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
                         print $variables{"Cellranger_ref"};
@@ -108,40 +110,40 @@ sub ChaosMatrixGeneration{
             }
             elsif(length($curl_path) != 0){
                 if ($human_genome_selection == 1){ #If the first option is selected, we donwload the selected genome
-                    if(-d "./refdata-cellranger-GRCh38-3\.0\.0"){
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
+                    if(-d "./$variables{'GRCH38_link'}"){
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'GRCH38_file'}";
                         print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
                         print "\nSkipping...\n";
                     }
                     else{
                         print "\nDownloading Human GRCh38 genome...\n";
                         #We download the genome
-                        qx/curl -O "http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz"/;
+                        qx/curl -O $variables{"GRCH38_link"}/;
                         print "\nDecrompressing the genome\n";
                         #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz/;
+                        qx/tar -xzvf $variables{"GRCH38_file"}\.tar\.gz/;
                         #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'GRCH38_file'}";
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
                         print $variables{"Cellranger_ref"};
                     }
                 }
                 elsif ($human_genome_selection == 2){
-                    if(-d "./refdata-cellranger-hg19-3\.0\.0"){
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
+                    if(-d "./$variables{'hg19_file'}"){
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'hg19_file'}";
                         print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
                         print "\nSkipping...\n";
                     }
                     else{
                         print "\nDownloading Human hg19 genome...\n";
                         #We download the genome
-                        qx/curl -O "http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-hg19-3\.0\.0\.tar\.gz"/;
+                        qx/curl -O $variables{"hg19_link"}/;
                         print "\nDecrompressing the genome\n";
                         #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-hg19-3\.0\.0\.tar\.gz/;
+                        qx/tar -xzvf $variables{"hg19_file"}\.tar\.gz/;
                         #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
+                        $variables{"Cellranger_ref"} = getcwd() . "/$variables{'hg19_file'}";
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
                         print $variables{"Cellranger_ref"};
@@ -157,19 +159,19 @@ sub ChaosMatrixGeneration{
             }
         }
         elsif($variables{"Cellranger_org"} =~ /[M-m]ouse/){
-            if(-d "./refdata-cellranger-mm10-3\.0\.0"){
-                $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-mm10-3\.0\.0";
+            if(-d "./$variables{'mouse_file'}"){
+                $variables{"Cellranger_ref"} = getcwd() . "/$variables{'mouse_file'}";
                 print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
                 print "Skipping...\n";
             }
             else{
                 print "\nDownloading mouse reference genome...\n";
                 if(length($wget_path) != 0){ #If wget is absent, the system will download the genome with curl
-                qx/curl -O "http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-mm10-3\.0\.0\.tar\.gz/;
+                qx/curl -O $variables{"mouse_link"}/;
                 #Now we uncompress the genome in the predefined folder
-                qx/tar -xzvf refdata-cellranger-mm10-3\.0\.0\.tar\.gz/;
+                qx/tar -xzvf $variables{"mouse_file"}\.tar\.gz/;
                 #STablish the reference genome variable to the current folder
-                $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-mm10-3\.0\.0";
+                $variables{"Cellranger_ref"} = getcwd() . "/$variables{'mouse_file'}";
                 }
             }
         }
@@ -231,4 +233,11 @@ sub ChaosMatrixGeneration{
     print "\nExecuting:\n" . $cellranger . "\n";
 
     system($variables{"Cellranger_path"} . "/" . $cellranger);
+
+    #After we execute the command, we add to the hash %variables the route
+    #to the output
+
+    my $cellranger_output_path = $variables{"Working_directory"} . "/" . $variables{"Cellranger_id"} . "/" . "outs/filtered_feature_bc_matrix";
+
+    return($cellranger_output_path);
 }
