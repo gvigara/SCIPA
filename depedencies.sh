@@ -37,7 +37,7 @@ apt-get -y install python3-pip
 #And now we can install multiqc from the repositories
 
 printf "\n\n Installing multiqc..."
-pip install multiqc
+pip3 install multiqc
 
 ##  We need R installed along with several libraries for analysis
 
