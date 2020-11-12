@@ -3,14 +3,20 @@
 #DEPENDENCY CHECK SCRIPT
 
 #Seurat software is dependent on the following packages:
-#Seurat
+#Seurat (httr and plotly are dependecies of seurat)
 #GGplot2 (installed)
 #Dplyr
 #Patchwork
+#Future is for paralelization
+#Devtools is for installing scCATCH
+#scCATCH is for cluster autotyping
 
-dependencies <- c("Seurat","patchwork","dplyr","ggplot2", "sctransform") #All required pacakges
+
+dependencies <- c("RCurl", "httr", "plotly", "Seurat","patchwork","dplyr", "future", "devtools") #All required pacakges
 
 #We create the function to install all the packages if missing
+
+print("Checking dependencies...")
 
 use.packages <- function(pkgs){
   new.pkgs <- pkgs[!(pkgs %in% installed.packages()[,"Package"])] #check the list of installed packages
@@ -19,6 +25,10 @@ use.packages <- function(pkgs){
   sapply(pkgs, require, character.only = TRUE) #This loads the packages
 }
 
+#And now we install scCATCH
+
+devtools::install_github('ZJUFanLab/scCATCH')
+
 #If they are not missing, the use of the function use.packages will load them
 
-invisible(use.packages(dependencies)) #Now we use the function with the packages
+use.packages(dependencies) #Now we use the function with the packages

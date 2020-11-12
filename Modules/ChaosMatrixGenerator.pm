@@ -14,7 +14,10 @@ our @ISA = qw(Exporter);
 our @EXPORT = qw(ChaosMatrixGeneration); #This is the module name
 
 sub ChaosMatrixGeneration{
-    my %variables = @_;
+    #As we passed all the parameters as references we have to store them this way, individually by order or acceptance
+    my %variables = %{$_[0]};
+    my %genome_links = %{$_[1]};
+    my @genome_names = @{$_[2]};
 
     #We define the individual variables we need for the use of the software
 
@@ -23,168 +26,138 @@ sub ChaosMatrixGeneration{
     my $cellranger; #stores the cellranger command
     my $localmem;
     my $localcores;
+    my $genome_file_name;
+    my $key;
 
     #And begin with the proper analysis script
+    if( $variables{"Working_directory"} and $variables{"Cellranger_path"} and $variables{"Cellranger_id"}){
+        print "\n----- CELLRANGER PARAMETERS -----\n\n";
 
-    print "\n----- CELLRANGER PARAMETERS -----\n\n";
-
-    print "Working directory: " . $variables{"Working_directory"} . "\n";
-    print "Cellranger installation path: " . $variables{"Cellranger_path"} . "\n";
-    print "ID for the cellranger project: " . $variables{"Cellranger_id"} . "\n";
-    print "Organism: " . $variables{"Cellranger_org"} . "\n";
-    print "Path to reference genome: " . $variables{"Cellranger_ref"} . "\n";
-    print "Expected cells for the analysis: " . $variables{"Cellranger_cells"} . "\n";
-    print "CPU cores for the analysis: " . $variables{"Core_threads"} . "\n";
-    print "RAM memory assigned for the analysis: " . $variables{"RAM_memory"} . "\n";
-
-    #If Path to reference genome is empty, we will print a message asking for the user to download it.
-    #First we want to check wether wget or curl is present on the system
-
-    my $wget_path = qx/which wget/;
-    #print "\nWget Path = " . $wget_path;
-    my $curl_path = qx/which curl/;
-    #print "\nCurl Path = " . $curl_path;
+        print "Working directory: " . $variables{"Working_directory"} . "\n";
+        print "Cellranger installation path: " . $variables{"Cellranger_path"} . "\n";
+        print "ID for the cellranger project: " . $variables{"Cellranger_id"} . "\n";
+        print "Organism: " . $variables{"Cellranger_organism"} . "\n";
+        if($variables{"Cellranger_organism"} =~ /[H-h]uman/){
+            print "Human reference genome selected: " . $variables{"Cellranger_reference"};
+            if($variables{"Cellranger_reference"} == 1){
+                print "\nGenome GRCh38 selected \n"
+            }
+            elsif($variables{"Cellranger_reference"} == 2){
+                print "\nGenome hg19 selected \n";
+            }
+            else{
+                die "\n ERROR: The genome selected for human organism is not correct. Please check config.ini, section Cellranger\n";
+            }
+        }
+        else{
+            print "\nNon human organism selected.\n";
+        }
+        print "Expected cells for the analysis: " . $variables{"Expected_cells"} . "\n";
+        print "CPU cores for the analysis: " . $variables{"QC_threads"} . "\n";
+        print "RAM memory assigned for the analysis: " . $variables{"Cellranger_mem"} . "\n";
+    }
+    else{
+        if(!$variables{"Cellranger_path"}){
+            print "\nPath for cellranger is: " . $variables{"Cellranger_path"} . "\n";
+            die "\nERROR: No path for cellranger was specified. Exiting... \n";
+        }
+        elsif(!$variables{"Cellranger_id"}){
+            die "\nERROR: No id for cellranger job was specified. Exiting...\n";
+        }
+        else{
+            die "\nERROR: No organism was specified for the analysis. Exiting...\n"
+        }
+    }
 
     #And we locate the system on the working directory
     chdir $variables{"Cellranger_path"};
 
-    GENOME_SELECTION: if($variables{"Cellranger_ref"} eq ""){ #If there is no input on the genome, we use this taggged loop
-        $reference_folder = $variables{"Cellranger_path"} . "/Reference_genomes";
-        mkdir($reference_folder); #We generate a new reference folder
-        chdir $reference_folder; #We move to the reference folder
-        print "\nREFERENCE GENOME MISSING, Downloading...\n";
-        if($variables{"Cellranger_org"} =~ /[H-h]uman/){
-            print "\nPlease, indicate which human reference genome you want to be downloaded:\n";
-            print "\n1) Human GRCh38\n2) Human hg19\n\n";
-            print "Specify 1 or 2: ";
-            $human_genome_selection = <STDIN>; #we allow the user to choose
-            if(length($wget_path) != 0){ #If wget is absent, the system will download the genome with curl
-                if ($human_genome_selection == 1){ #If the first option is selected, we donwload the selected genome
-                    if(-d "./refdata-cellranger-GRCh38-3\.0\.0"){#This checks if the process has been already done although
-                    #the user didnt specify it on the options file
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
-                        print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
-                        print "\nSkipping...\n";
-                    }
-                    else{
-                        print "\nDownloading Human GRCh38 genome...\n";
-                        #We download the genome. -C is for continue the donwload the file
-                        #In case an incomplete download took place, this time the genome will donwload again. 
-                        qx/wget -c http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz/;
-                        print "\nDecrompressing the genome\n";
-                        #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz/;
-                        #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
-                        print "\n---------------------------------------------------------------------------------------------\n";
-                        print "\nThe reference genome for the analysis has been stored on:\n";
-                        print $variables{"Cellranger_ref"};
-                    }
-                }
-                elsif ($human_genome_selection == 2){
-                    if(-d "./refdata-cellranger-hg19-3\.0\.0"){
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
-                        print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
-                        print "\nSkipping...\n";
-                    }
-                    else{
-                        print "\nDownloading Human hg19 genome...\n";
+
+    #We store the path to the folder where the reference genomes are stored
+    $reference_folder = $variables{"Cellranger_path"} . "/Reference_genomes";
+    if(-d $reference_folder){ #If the folder exists
+        print "\n" . $reference_folder . " already exists.\n";
+        chdir($reference_folder); #move to the folder
+    }
+    else{ #If it doesnt exists, create it and move there
+        print"\n" . $reference_folder . " doesn't exist, creating a new one...\n";
+        mkdir($reference_folder);
+        chdir($reference_folder); #move to the folder
+    }
+    
+
+    #Modified loop for genome selection
+
+    #First we have to store the keys for the links variable, as this will have the names of the files
+    #    foreach $key (keys %genome_links){
+    #        push(@genome_names, $key); #This way we will store all the names for the genomes
+    #        print "$key \n";
+    #    }
+
+    GENOME_SELECTION: if($variables{"Cellranger_organism"} =~ /[H-h]uman/){
+        if($variables{"Cellranger_reference"} == 1){
+            if (-d "./$genome_names[0]"){ #If the directory for GRCH38 already exists, dont download it
+                $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[0]";
+                print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref_path"} . "\n";
+                print "\nSkipping...\n";
+            }
+            else{ #If the directory doesn't exist we download it
+                print "\nDownloading Human GRCh38 genome...\n";
                         #We download the genome
-                        qx/wget -c http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-hg19-3\.0\.0\.tar\.gz/;
+                        qx/curl -O $genome_links{"$genome_names[0]"}/; #We use the flag -O to continue with a non-completed download
                         print "\nDecrompressing the genome\n";
                         #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-hg19-3\.0\.0\.tar\.gz/;
+                        qx/tar -xzvf $genome_names[0]\.tar\.gz/;
+                        qx/rm $genome_names[0]\.tar\.gz/; #remove the genome after decompressing
                         #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
+                        $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[0]";
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
-                        print $variables{"Cellranger_ref"};
-                    }
-                }
-                else{
-                    print "\nInvalid option, please select again...\n";
-                    goto GENOME_SELECTION; #In the case we select other genome, we go back to the human selection loop
+                        print $variables{"Cellranger_ref_path"};
                 }
             }
-            elsif(length($curl_path) != 0){
-                if ($human_genome_selection == 1){ #If the first option is selected, we donwload the selected genome
-                    if(-d "./refdata-cellranger-GRCh38-3\.0\.0"){
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
-                        print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
-                        print "\nSkipping...\n";
-                    }
-                    else{
-                        print "\nDownloading Human GRCh38 genome...\n";
-                        #We download the genome
-                        qx/curl -O "http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz"/;
-                        print "\nDecrompressing the genome\n";
-                        #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-GRCh38-3\.0\.0\.tar\.gz/;
-                        #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-GRCh38-3\.0\.0";
-                        print "\n---------------------------------------------------------------------------------------------\n";
-                        print "\nThe reference genome for the analysis has been stored on:\n";
-                        print $variables{"Cellranger_ref"};
-                    }
-                }
-                elsif ($human_genome_selection == 2){
-                    if(-d "./refdata-cellranger-hg19-3\.0\.0"){
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
-                        print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
-                        print "\nSkipping...\n";
-                    }
-                    else{
-                        print "\nDownloading Human hg19 genome...\n";
-                        #We download the genome
-                        qx/curl -O "http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-hg19-3\.0\.0\.tar\.gz"/;
-                        print "\nDecrompressing the genome\n";
-                        #Uncompress the genome in the predefined folder
-                        qx/tar -xzvf refdata-cellranger-hg19-3\.0\.0\.tar\.gz/;
-                        #Stablish the reference genome variable to the current folder
-                        $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-hg19-3\.0\.0";
-                        print "\n---------------------------------------------------------------------------------------------\n";
-                        print "\nThe reference genome for the analysis has been stored on:\n";
-                        print $variables{"Cellranger_ref"};
-                    }
-                }
-                else{
-                    print "\nInvalid option, please select again...\n";
-                    goto GENOME_SELECTION; #In the case we select other genome, we go back to the human selection loop
-                }
+        elsif($variables{"Cellranger_reference"} == 2){
+            if (-d "./$genome_names[1]"){ #If the directory for GRCH38 already exists, dont download it
+                $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[1]";
+                print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref_path"} . "\n";
+                print "\nSkipping...\n";
             }
-            else{
-                die "\nCannot find Curl nor Wget, please download them and try again!\n"
+            else{ #If the directory doesn't exist we download it
+                print "\nDownloading Human GRCh38 genome...\n";
+                        #We download the genome
+                        qx/curl -O $genome_links{"$genome_names[1]"}/; #We use the flag -O to continue with a non-completed download
+                        print "\nDecrompressing the genome\n";
+                        #Uncompress the genome in the predefined folder
+                        qx/tar -xzvf $genome_names[1]\.tar\.gz/;
+                        qx/rm $genome_names[1]\.tar\.gz/; #Remove the genome after decompressing
+                        #Stablish the reference genome variable to the current folder
+                        $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[1]";
+                        print "\n---------------------------------------------------------------------------------------------\n";
+                        print "\nThe reference genome for the analysis has been stored on:\n";
+                        print $variables{"Cellranger_ref_path"};
             }
         }
-        elsif($variables{"Cellranger_org"} =~ /[M-m]ouse/){
-            if(-d "./refdata-cellranger-mm10-3\.0\.0"){
-                $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-mm10-3\.0\.0";
-                print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref"} . "\n";
+    }
+    elsif($variables{"Cellranger_organism"} =~ /[M-m]ouse/){
+            if(-d "./$genome_names[2]"){
+                $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[2]";
+                print "\nThe selected genome has already been downloaded and decompressed on: " . $variables{"Cellranger_ref_path"} . "\n";
                 print "Skipping...\n";
             }
             else{
                 print "\nDownloading mouse reference genome...\n";
-                if(length($wget_path) != 0){ #If wget is absent, the system will download the genome with curl
-                qx/curl -O "http:\/\/cf\.10xgenomics\.com\/supp\/cell-exp\/refdata-cellranger-mm10-3\.0\.0\.tar\.gz/;
+                #If wget is absent, the system will download the genome with curl
+                qx/curl -O $genome_links{"$genome_names[2]"}/;
                 #Now we uncompress the genome in the predefined folder
-                qx/tar -xzvf refdata-cellranger-mm10-3\.0\.0\.tar\.gz/;
+                qx/tar -xzvf $genome_names[2]\.tar\.gz/;
+                qx/rm $genome_names[2]\.tar\.gz/; #And after decompressing the genome we remove it
                 #STablish the reference genome variable to the current folder
-                $variables{"Cellranger_ref"} = getcwd() . "/refdata-cellranger-mm10-3\.0\.0";
-                }
+                $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[2]";
             }
-        }
-        else{
-            die "The genome for the organism " . $variables{"Cellranger_org"} .  " is not avaiable. Exiting...";
-        }
-    }
-    elsif($variables{"Cellranger_ref"} =! ""){ #In case the reference genome path is already specified on the config.ini file
-        print "\n---------------------------------------------------------------------------------------------\n";
-        print "\nThe reference genome for the analysis is stored on:\n";
-        print $variables{"Cellranger_ref"};
     }
     else{
-        die "\nUnable to locate the reference genome: $variables{'Cellranger_ref'}. Please, check it and execute the software again. \n"
-    } #Close the loop 
+        die "ERROR: The organism you wrote is not on the database for reference genomes provided by 10X. Exiting...\n";
+    }
 
 
 
@@ -200,26 +173,26 @@ sub ChaosMatrixGeneration{
 
     #And then we use all the variables to execute the programm
 
-    $cellranger = "cellranger count " . "--id=" . $variables{"Cellranger_id"} . " --transcriptome=" . $variables{"Cellranger_ref"}
-                . " --fastqs=" . $variables{"Working_directory"} . " --expect-cells=" . $variables{"Cellranger_cells"};
+    $cellranger = "cellranger count " . "--id=" . $variables{"Cellranger_id"} . " --transcriptome=" . $variables{"Cellranger_ref_path"}
+                . " --fastqs=" . $variables{"Working_directory"} . " --expect-cells=" . $variables{"Expected_cells"};
 
     #now we add the flags for the number of CPU cores and memory if they were selected. If not
     #The flag will not appear on the command
 
-    $localmem = $variables{"RAM_memory"};
-    $localcores = $variables{"Core_threads"}; #We assign the hash to variables to concatenate them, if not
+    $localmem = $variables{"Cellranger_mem"};
+    $localcores = $variables{"QC_threads"}; #We assign the hash to variables to concatenate them, if not
     #the concatenation will return a "position" rather than the value
 
     #Remember when cores or memory values are not assigned by user the value is filled with the string
     #"AUTOMATIC SELECTION BY SOFTWARE"
 
-    if($variables{"Core_threads"} ne "AUTOMATIC SELECTION BY SOFTWARE" && $variables{"RAM_memory"} ne "AUTOMATIC SELECTION BY SOFTWARE"){
+    if($variables{"QC_threads"} ne "AUTOMATIC SELECTION BY SOFTWARE" && $variables{"Cellranger_mem"} ne "AUTOMATIC SELECTION BY SOFTWARE"){
         $cellranger = $cellranger . " --localcores=" . $localcores . " --localmem=" . $localmem;
     }
-    elsif($variables{"Core_threads"} ne "AUTOMATIC SELECTION BY SOFTWARE" && $variables{"RAM_memory"} eq "AUTOMATIC SELECTION BY SOFTWARE"){
+    elsif($variables{"QC_threads"} ne "AUTOMATIC SELECTION BY SOFTWARE" && $variables{"Cellranger_mem"} eq "AUTOMATIC SELECTION BY SOFTWARE"){
         $cellranger = $cellranger . " --localcores=" . $localcores;
     }
-    elsif($variables{"RAM_memory"} ne "AUTOMATIC SELECTION BY SOFTWARE" && $variables{"Core_threads"} eq "AUTOMATIC SELECTION BY SOFTWARE"){
+    elsif($variables{"Cellranger_mem"} ne "AUTOMATIC SELECTION BY SOFTWARE" && $variables{"QC_threads"} eq "AUTOMATIC SELECTION BY SOFTWARE"){
         $cellranger = $cellranger . " --localmem=" . $localmem;
     }
     else{
@@ -231,4 +204,11 @@ sub ChaosMatrixGeneration{
     print "\nExecuting:\n" . $cellranger . "\n";
 
     system($variables{"Cellranger_path"} . "/" . $cellranger);
+
+    #After we execute the command, we add to the hash %variables the route
+    #to the output
+
+    my $cellranger_output_path = $variables{"Working_directory"} . "/" . $variables{"Cellranger_id"} . "/" . "outs/filtered_feature_bc_matrix";
+
+    return($cellranger_output_path);
 }

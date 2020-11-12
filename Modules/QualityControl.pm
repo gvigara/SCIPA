@@ -49,15 +49,13 @@ sub QualityControl{
             push(@fastq_files, $i);
         }
     }
+    closedir(WORKINGDIR);
+
     #Now we check if the Output directory exists. If not, we create it. 
     if(-d $variables{"Output_QC"}){
         print "\n" . $variables{"Output_QC"} . " already exists. \n";
     }
-    else{
-        print "\nCreating output directory for FASTQC analysis... \n\n";
-        qx/mkdir $variables{"Output_QC"}/;
-    }
-    closedir(WORKINGDIR);
+    
 
     #We check if there are fastq files on the list. If not, the program stops. 
     if(scalar(@fastq_files) == 0){
@@ -78,15 +76,32 @@ sub QualityControl{
     #print $analysis_list;
     #Now we execute the FASTQ quality analysis, previous check if there are already analysis files
 
-    qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"Core_threads"} -f fastq/;
-
+    if(-d $variables{"Output_QC"}){ #If the output directory exists on
+        print "\n" . $variables{"Output_QC"} . " already exists. \n";
+        chdir($variables{"Output_QC"}); #Change to the analysis directory
+        #Now we use glob to check all the files on the directory with the extension .html (output for fastqc)
+        my @QC_files_on_dir = glob "*.html";
+        if(length(@QC_files_on_dir != 0)){  #If there are files on the directory that correspond to html
+            print "\nFASTQC analysis already performed for files on " . $variables{"Working_directory"} . ". Skipping...\n";
+        }
+        else{ #if the file is empty of html files we have to perform the analysis for QC control
+           chdir($variables{"Working_directory"}); #Change again to the working directory
+           qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"QC_threads"} --noextract/;
+        }
+    }
+    else{
+        print "\nCreating output directory for FASTQC analysis... \n\n"; 
+        qx/mkdir $variables{"Output_QC"}/; #We create the output directory
+        qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"QC_threads"} --noextract/; #And execute the analysis
+    }
+  
     print "----- QC ANALYSIS FINISHED -----";
 
     ####################
     # MULTIQC ANALYSIS #
     ####################
 
-    if($variables{"MultiQC_analysis"} eq "yes" or $variables{"MultiQC_analysis"} eq "Yes"){
+    if($variables{"Multi_QC"} eq "yes" or $variables{"Multi_QC"} eq "Yes"){
         #MultiQC generates a single report file from different FASTQC files, allowing a fast view of all of them
 
         #We need first the username of whom it's executing the script
@@ -126,7 +141,7 @@ sub QualityControl{
 
         print "\nMultiQC containing all analysis generated.\n";
     }
-    elsif($variables{"MultiQC_analysis"} eq "no" or $variables{"MultiQC_analysis"} eq "No"){
+    elsif($variables{"Multi_QC"} eq "no" or $variables{"Multi_QC"} eq "No"){
         print "\nThe user has decided no to perform a MultiQC analysis. Skipping... \n";
     }
     else{
