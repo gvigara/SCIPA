@@ -29,36 +29,45 @@ sub ChaosMatrixGeneration{
     my $genome_file_name;
     my $key;
 
+    #And we locate the system on the working directory
+    chdir $variables{"Cellranger_path"};
+
+    #We open the log file
+
+    my $log_name = $variables{'Working_directory'}."/Cellranger_Log_".$variables{'Actual_date'}.".txt";
+    open(QCLOG, ">".$log_name);
+
     #And begin with the proper analysis script
     if( $variables{"Working_directory"} and $variables{"Cellranger_path"} and $variables{"Cellranger_id"}){
-        print "\n----- CELLRANGER PARAMETERS -----\n\n";
+        print QCLOG "\n----- CELLRANGER PARAMETERS -----\n\n";
 
-        print "Working directory: " . $variables{"Working_directory"} . "\n";
-        print "Cellranger installation path: " . $variables{"Cellranger_path"} . "\n";
-        print "ID for the cellranger project: " . $variables{"Cellranger_id"} . "\n";
-        print "Organism: " . $variables{"Cellranger_organism"} . "\n";
+        print QCLOG "Working directory: " . $variables{"Working_directory"} . "\n";
+        print QCLOG "Cellranger installation path: " . $variables{"Cellranger_path"} . "\n";
+        print QCLOG "ID for the cellranger project: " . $variables{"Cellranger_id"} . "\n";
+        print QCLOG"Organism: " . $variables{"Cellranger_organism"} . "\n";
         if($variables{"Cellranger_organism"} =~ /[H-h]uman/){
-            print "Human reference genome selected: " . $variables{"Cellranger_reference"};
+            print QCLOG "Human reference genome selected: " . $variables{"Cellranger_reference"};
             if($variables{"Cellranger_reference"} == 1){
-                print "\nGenome GRCh38 selected \n"
+                print QCLOG "\nGenome GRCh38 selected \n"
             }
             elsif($variables{"Cellranger_reference"} == 2){
-                print "\nGenome hg19 selected \n";
+                print QCLOG "\nGenome hg19 selected \n";
             }
             else{
                 die "\n ERROR: The genome selected for human organism is not correct. Please check config.ini, section Cellranger\n";
             }
         }
         else{
-            print "\nNon human organism selected.\n";
+            print QCLOG "\nNon human organism selected.\n";
         }
-        print "Expected cells for the analysis: " . $variables{"Expected_cells"} . "\n";
-        print "CPU cores for the analysis: " . $variables{"QC_threads"} . "\n";
-        print "RAM memory assigned for the analysis: " . $variables{"Cellranger_mem"} . "\n";
+        print QCLOG "Expected cells for the analysis: " . $variables{"Expected_cells"} . "\n";
+        print QCLOG "CPU cores for the analysis: " . $variables{"QC_threads"} . "\n";
+        print QCLOG "RAM memory assigned for the analysis: " . $variables{"Cellranger_mem"} . "\n";
     }
     else{
         if(!$variables{"Cellranger_path"}){
             print "\nPath for cellranger is: " . $variables{"Cellranger_path"} . "\n";
+            print QCLOG "\nPath for cellranger is: " . $variables{"Cellranger_path"} . "\n";
             die "\nERROR: No path for cellranger was specified. Exiting... \n";
         }
         elsif(!$variables{"Cellranger_id"}){
@@ -69,18 +78,19 @@ sub ChaosMatrixGeneration{
         }
     }
 
-    #And we locate the system on the working directory
-    chdir $variables{"Cellranger_path"};
+    
 
 
     #We store the path to the folder where the reference genomes are stored
     $reference_folder = $variables{"Cellranger_path"} . "/Reference_genomes";
     if(-d $reference_folder){ #If the folder exists
         print "\n" . $reference_folder . " already exists.\n";
+        print QCLOG "\n" . $reference_folder . " already exists.\n";
         chdir($reference_folder); #move to the folder
     }
     else{ #If it doesnt exists, create it and move there
-        print"\n" . $reference_folder . " doesn't exist, creating a new one...\n";
+        print "\n" . $reference_folder . " doesn't exist, creating a new one...\n";
+        print QCLOG "\n" . $reference_folder . " doesn't exist, creating a new one...\n";
         mkdir($reference_folder);
         chdir($reference_folder); #move to the folder
     }
@@ -103,6 +113,7 @@ sub ChaosMatrixGeneration{
             }
             else{ #If the directory doesn't exist we download it
                 print "\nDownloading Human GRCh38 genome...\n";
+                print QCLOG "\nDownloading Human GRCh38 genome...\n";
                         #We download the genome
                         qx/curl -O $genome_links{"$genome_names[0]"}/; #We use the flag -O to continue with a non-completed download
                         print "\nDecrompressing the genome\n";
@@ -113,7 +124,9 @@ sub ChaosMatrixGeneration{
                         $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[0]";
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
+                        print QCLOG"\nThe reference genome for the analysis has been stored on:\n";
                         print $variables{"Cellranger_ref_path"};
+                        print QCLOG$variables{"Cellranger_ref_path"};
                 }
             }
         elsif($variables{"Cellranger_reference"} == 2){
@@ -123,7 +136,9 @@ sub ChaosMatrixGeneration{
                 print "\nSkipping...\n";
             }
             else{ #If the directory doesn't exist we download it
-                print "\nDownloading Human GRCh38 genome...\n";
+                print QCLOG "\nDownloading Human hg19 genome...\n";
+                 print "\nDownloading Human hg19 genome...\n";
+
                         #We download the genome
                         qx/curl -O $genome_links{"$genome_names[1]"}/; #We use the flag -O to continue with a non-completed download
                         print "\nDecrompressing the genome\n";
@@ -135,6 +150,8 @@ sub ChaosMatrixGeneration{
                         print "\n---------------------------------------------------------------------------------------------\n";
                         print "\nThe reference genome for the analysis has been stored on:\n";
                         print $variables{"Cellranger_ref_path"};
+                        print QCLOG "\nThe reference genome for the analysis has been stored on:\n";
+                        print QCLOG $variables{"Cellranger_ref_path"};
             }
         }
     }
@@ -146,6 +163,7 @@ sub ChaosMatrixGeneration{
             }
             else{
                 print "\nDownloading mouse reference genome...\n";
+                print QCLOG"\nDownloading mouse reference genome...\n";
                 #If wget is absent, the system will download the genome with curl
                 qx/curl -O $genome_links{"$genome_names[2]"}/;
                 #Now we uncompress the genome in the predefined folder
@@ -153,6 +171,11 @@ sub ChaosMatrixGeneration{
                 qx/rm $genome_names[2]\.tar\.gz/; #And after decompressing the genome we remove it
                 #STablish the reference genome variable to the current folder
                 $variables{"Cellranger_ref_path"} = getcwd() . "/$genome_names[2]";
+                print "\n---------------------------------------------------------------------------------------------\n";
+                print "\nThe reference genome for the analysis has been stored on:\n";
+                print $variables{"Cellranger_ref_path"};
+                print QCLOG "\nThe reference genome for the analysis has been stored on:\n";
+                print QCLOG $variables{"Cellranger_ref_path"};
             }
     }
     else{
@@ -166,6 +189,9 @@ sub ChaosMatrixGeneration{
     print "\n-------------------------------------------------------------------------------------------\n";
     print "\t\tINITIATING CELLRANGER ANALYSIS";
     print "\n-------------------------------------------------------------------------------------------\n";
+    print QCLOG "\n-------------------------------------------------------------------------------------------\n";
+    print QCLOG "\t\tINITIATING CELLRANGER ANALYSIS";
+    print QCLOG "\n-------------------------------------------------------------------------------------------\n";
 
     #Now we change the directory back to our working directory
 
@@ -203,12 +229,20 @@ sub ChaosMatrixGeneration{
 
     print "\nExecuting:\n" . $cellranger . "\n";
 
-    system($variables{"Cellranger_path"} . "/" . $cellranger);
+    #my $cellranger_output = system($variables{"Cellranger_path"} . "/" . $cellranger);
+    my $cellranger_output = qx/$variables{'Cellranger_path'}"\/"$cellranger/;
+
+    print QCLOG "\nExecuting: \n" . $cellranger . "\n";
+    print QCLOG $cellranger_output;
 
     #After we execute the command, we add to the hash %variables the route
     #to the output
 
     my $cellranger_output_path = $variables{"Working_directory"} . "/" . $variables{"Cellranger_id"} . "/" . "outs/filtered_feature_bc_matrix";
 
+    print "\nCellranger output located on: ". $cellranger_output_path . "\n";
+    print QCLOG "\nCellranger output located on: ". $cellranger_output_path . "\n";
+
+    close QCLOG;
     return($cellranger_output_path);
 }

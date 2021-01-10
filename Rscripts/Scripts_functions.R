@@ -4,7 +4,7 @@ libraries <- c("Seurat", "dplyr", "patchwork", "future")
 sapply(libraries, require, character.only=TRUE)
 
 setup_qc <- function(input_directory, output_directory, project_name, min_cells, min_features, 
-                     min_nFeature_subset, max_nFeature_subset, max_percent_mt){
+                     min_nFeature_subset = "." , max_nFeature_subset = ".", max_percent_mt =".", organism){
   
   #Print the variables for execution
   print("Initiating setup and QC analysis. Function parameters:")
@@ -31,8 +31,24 @@ setup_qc <- function(input_directory, output_directory, project_name, min_cells,
   #After the object has been created we initiate the standard pre-processing
   #in which we obtain the mitochondrial DNA
   
-  project_name[["percent.mt"]] <- PercentageFeatureSet(project_name, pattern = "^MT-");
+  #If it is human the pattern for mitochondrial DNA is ^MT-, it mouse is ^mt-
   
+  if (organism == "Human"){
+  project_name[["percent.mt"]] <- PercentageFeatureSet(project_name, pattern = "^MT-")
+  }
+  else if (organism == "human"){
+  project_name[["percent.mt"]] <- PercentageFeatureSet(project_name, pattern = "^MT-")
+  }
+  else if (organism == "Mouse"){
+    project_name[["percent.mt"]] <- PercentageFeatureSet(project_name, pattern = "^mt-")	
+  }
+  else if (organism == "mouse"){
+    project_name[["percent.mt"]] <- PercentageFeatureSet(project_name, pattern = "^mt-")	
+  }
+  else{
+  print("Organism selected is not recognizable, please check config.ini")
+  exit()
+  }
   #Now we export the graphs with different visualization
   
   #We create a violin plot of the data and export it to pdf
@@ -60,12 +76,84 @@ setup_qc <- function(input_directory, output_directory, project_name, min_cells,
   #If the user doesn't add any information about the values for the subset
   #Now we determine the min, max features for the subset and the max mitoDNA
   
-  if(min_nFeature_subset == "." & max_nFeature_subset == "." & max_percent_mt == "."){
+  if(min_nFeature_subset == "." && max_nFeature_subset == "." && max_percent_mt == "."){
   minimum_subset_features = min(project_name[["nFeature_RNA"]]$nFeature_RNA)
-  #As maximum subset we will use the 99% of the values, gathered under percentile 99.9
-  maximum_subset_features = quantile(project_name[["nFeature_RNA"]]$nFeature_RNA, 0.999)
-  #As mitochondrial value we will use the values under the percentile 95, gathering most of the values there
-  maximum_mitochondral_dna_percentage = quantile(project_name[["percent.mt"]]$percent.mt, 0.95)
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = (1.5 * IQR(project_name[["nFeature_RNA"]]$nFeature_RNA) + quantile(project_name[["nFeature_RNA"]]$nFeature_RNA, 0.75)
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = (1.5 * IQR(project_name[["percent.mt"]]$percent.mt) + quantile(project_name[["percent.mt"]]$percent.mt, 0.75)
+  print("The user didn't provide any parameters for subset generation, using the calculated ones")
+  print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
+  print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
+  print(paste("Maximum_mitochondrial_dna_percentage:", maximum_mitochondral_dna_percentage, sep = " "))
+  project_name <- subset(project_name, subset = nFeature_RNA > minimum_subset_features & nFeature_RNA < maximum_subset_features & percent.mt < maximum_mitochondral_dna_percentage)
+  } 
+  else if(min_nFeature_subset != "." && max_nFeature_subset == "." && max_percent_mt == "."){
+  minimum_subset_features = min_nFeature_subset
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = IQR(project_name[["nFeature_RNA"]]$nFeature_RNA) + mean(project_name[["nFeature_RNA"]]$nFeature_RNA)
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = IQR(project_name[["percent.mt"]]$percent.mt) + mean(project_name[["percent.mt"]]$percent.mt)
+  print("The user didn't provide any parameters for subset generation, using the calculated ones")
+  print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
+  print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
+  print(paste("Maximum_mitochondrial_dna_percentage:", maximum_mitochondral_dna_percentage, sep = " "))
+  project_name <- subset(project_name, subset = nFeature_RNA > minimum_subset_features & nFeature_RNA < maximum_subset_features & percent.mt < maximum_mitochondral_dna_percentage)
+  } 
+  else if(min_nFeature_subset == "." && max_nFeature_subset != "." && max_percent_mt == "."){
+  minimum_subset_features = min(project_name[["nFeature_RNA"]]$nFeature_RNA)
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = max_nFeature_subset
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = IQR(project_name[["percent.mt"]]$percent.mt) + mean(project_name[["percent.mt"]]$percent.mt)
+  print("The user didn't provide any parameters for subset generation, using the calculated ones")
+  print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
+  print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
+  print(paste("Maximum_mitochondrial_dna_percentage:", maximum_mitochondral_dna_percentage, sep = " "))
+  project_name <- subset(project_name, subset = nFeature_RNA > minimum_subset_features & nFeature_RNA < maximum_subset_features & percent.mt < maximum_mitochondral_dna_percentage)
+  }
+  else if(min_nFeature_subset == "." && max_nFeature_subset == "." && max_percent_mt != "."){
+  minimum_subset_features = min(project_name[["nFeature_RNA"]]$nFeature_RNA)
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = IQR(project_name[["nFeature_RNA"]]$nFeature_RNA) + mean(project_name[["nFeature_RNA"]]$nFeature_RNA)
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = max_percent_mt
+  print("The user didn't provide any parameters for subset generation, using the calculated ones")
+  print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
+  print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
+  print(paste("Maximum_mitochondrial_dna_percentage:", maximum_mitochondral_dna_percentage, sep = " "))
+  project_name <- subset(project_name, subset = nFeature_RNA > minimum_subset_features & nFeature_RNA < maximum_subset_features & percent.mt < maximum_mitochondral_dna_percentage)
+  } 
+  else if(min_nFeature_subset != "." && max_nFeature_subset != "." && max_percent_mt == "."){
+  minimum_subset_features = min_nFeature_subset
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = max_nFeature_subset
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = IQR(project_name[["percent.mt"]]$percent.mt) + mean(project_name[["percent.mt"]]$percent.mt)
+  print("The user didn't provide any parameters for subset generation, using the calculated ones")
+  print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
+  print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
+  print(paste("Maximum_mitochondrial_dna_percentage:", maximum_mitochondral_dna_percentage, sep = " "))
+  project_name <- subset(project_name, subset = nFeature_RNA > minimum_subset_features & nFeature_RNA < maximum_subset_features & percent.mt < maximum_mitochondral_dna_percentage)
+  } 
+  else if(min_nFeature_subset != "." && max_nFeature_subset == "." && max_percent_mt != "."){
+  minimum_subset_features = min_nFeature_subset
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = IQR(project_name[["nFeature_RNA"]]$nFeature_RNA) + mean(project_name[["nFeature_RNA"]]$nFeature_RNA)
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = max_percent_mt
+  print("The user didn't provide any parameters for subset generation, using the calculated ones")
+  print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
+  print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
+  print(paste("Maximum_mitochondrial_dna_percentage:", maximum_mitochondral_dna_percentage, sep = " "))
+  project_name <- subset(project_name, subset = nFeature_RNA > minimum_subset_features & nFeature_RNA < maximum_subset_features & percent.mt < maximum_mitochondral_dna_percentage)
+  }
+  else if(min_nFeature_subset == "." && max_nFeature_subset != "." && max_percent_mt != "."){
+  minimum_subset_features = min(project_name[["nFeature_RNA"]]$nFeature_RNA)
+  #As maximum subset we will use the mean plus the intercuartilic range of the features
+  maximum_subset_features = max_nFeature_subset
+  #As mitochondrial value we will use the values under the percentile 99, gathering most of the values there
+  maximum_mitochondral_dna_percentage = max_percent_mt
   print("The user didn't provide any parameters for subset generation, using the calculated ones")
   print(paste("Minimum subset features:", minimum_subset_features, sep = " "))
   print(paste("Maximum_subset_features:", maximum_subset_features, sep = " "))
@@ -75,11 +163,10 @@ setup_qc <- function(input_directory, output_directory, project_name, min_cells,
   else{
     #If the user adds information about the subset we use its values
     project_name <- subset(project_name, subset = nFeature_RNA > min_nFeature_subset & nFeature_RNA < max_nFeature_subset & percent.mt < max_percent_mt);
-    
   }
 
     #And we return the object to the function
-  
+  #saveRDS(project_name, file = 'Analysis_seurat_object.rds')
   return(project_name); 
 }
 
@@ -122,7 +209,7 @@ Normalization <- function(parse_object, norm_method, scfactor,
   
   NFeatures_plot1 <- VariableFeaturePlot(function_object)
   NFeatures_plot2 <- LabelPoints(plot = NFeatures_plot1, points = topNfeatures, repel = TRUE)
-  jpeg(filename = "Variable_featurePlot.jpg", units ="px", width = 2048, height = 1024)  #Opens the picture
+  jpeg(filename = "Seurat_VarFeaturePlot.jpg", units ="px", width = 2048, height = 1024)  #Opens the picture
   print(NFeatures_plot1 + NFeatures_plot2)
   dev.off()
   
@@ -136,14 +223,14 @@ print("Normalization function... loaded!")
 ## Third function will be in charge of PCA and determination of the 
 ## dimensionality of the dataset
 
-PCA_and_dimensionality <- function(parse_object, dimensions_on_text,
+PCA <- function(parse_object, dimensions_on_text,
                                    features_on_text, VDL_dims, DHM_dims,
                                    DHM_cells, cores){
   
   function_object <- parse_object
   plan(multicore, workers = cores)
   
-  print("Starting PCA and dimensionality adjustment:")
+  print("Starting PCA adjustment:")
   message("Dimensions on text: ", dimensions_on_text)
   message("Features on text: ", features_on_text)
   message("VizDimLoadings dimensions: ", VDL_dims)
@@ -165,7 +252,7 @@ PCA_and_dimensionality <- function(parse_object, dimensions_on_text,
   #desired dimensions the user tells with the variable dimensions_on_text
   
   capture.output(print(function_object[["pca"]], dims = 1:dimensions_on_text, 
-                       nfeatures = features_on_text), file = "PCA_dims.txt")
+                       nfeatures = features_on_text), file = "Genes_on_PCAs.txt")
   
   #Now we get different plots and print them to PDF files (they're vectorial)
   #To print them we will use a if-else loop in which each plot will be plotted
@@ -196,7 +283,7 @@ PCA_and_dimensionality <- function(parse_object, dimensions_on_text,
   }
   dev.off()
   
-  pdf(file = "DimPlot.pdf")
+  pdf(file = "UMAP_nocluster.pdf")
   graph2 <- DimPlot(function_object, reduction = "pca")
   print(graph2)
   dev.off()
@@ -262,7 +349,7 @@ dimensionality <- function(parse_object, JS_replicates, JSscore_dims,
 print("Dimensionality calculation function... loaded!")
 
 clustering_and_NLR <- function(parse_object, PC_pvalue, cluster_resolution,
-                               reduction_method, organism, selected_tissue, cores){
+                               reduction_method, cores){
   
   function_object <- parse_object
   
@@ -292,9 +379,9 @@ clustering_and_NLR <- function(parse_object, PC_pvalue, cluster_resolution,
     }
   }
   
-  capture.output(
-  paste(print("Selected_PCs_are:"),
-  print(selected_PC), sep = ""), file = "Selected_PCs.txt")
+  #capture.output(
+  #paste(print("Selected_PCs_are:"),
+  #print(selected_PC), sep = ""), file = "Selected_dimensions.txt")
 
   
   #We first find the neighbors of the clusters. The dimensions are the ones 
@@ -312,7 +399,7 @@ clustering_and_NLR <- function(parse_object, PC_pvalue, cluster_resolution,
   
   options(max.print= 99999999) #With this we avoid the limit for printing
   
-  capture.output(Idents(function_object), file = "Cluster_IDs.txt")
+  capture.output(Idents(function_object), file = "Cluster_cellIDs.txt")
   
   #After doing this clustering we perform the non-linear reduction of the data
   #using the same dimensions we already chose
@@ -323,55 +410,127 @@ clustering_and_NLR <- function(parse_object, PC_pvalue, cluster_resolution,
   
   DPlot <- DimPlot(function_object, reduction = reduction_method)
   
-  pdf(file = paste("DimPlot", reduction_method, "Neighbours.pdf", sep = "_"))
+  pdf(file = "UMAP_clustered_unidentified.pdf"))
   print(DPlot)
   dev.off()
-  
-  ##Now we will use scCATCH to annotate the clusters
-  
-  library(scCATCH)
-  
-  plan(multicore, workers = cores)
-  
-  clu_markers <- findmarkergenes(function_object, species = organism) #Here we get the markers for each cluster
-  clu_ann <- scCATCH(clu_markers$clu_markers, species = organism, tissue = selected_tissue) #And we get the annotation
-  
-  #Now we will print all the graphics
-  #Starting with the violin plot for each of the genes found on findmarkergenes
-  
-  capture.output(paste("Marker genes are:", clu_markers$clu_markers, sep = "\n"))
-  
-  #Violinplot blablabla
-  
-  violin_counter = 1
-  lista_genes = clu_markers$clu_markers$gene
-  longitud = length(lista_genes)
-  
-  while(count <= longitud){
-    print(VlnPlot(working_object, features = lista_genes[count]))
-    violin_count <- violin_count +1
-  }
-  
-  #Now we mark the Dimplot with the clusters
-  
-  new.cluster.ids <- as.list(clu_ann$cell_type)
-  names(new.cluster.ids) <- levels(function_object)
-  function_object <- RenameIdents(function_object, new.cluster.ids)
-  
-  Dimplotmarked <- DimPlot(function_object, reduction = reduction_method, label = TRUE, pt.size = 0.5) + NoLegend()
-  
-  pdf("UMAP_clustered.pdf")
-  print(DimPlot(function_object, reduction = reduction_method, label = TRUE, pt.size = 0.5))
-  dev.off()
-  
-  #And now we save the Robject so user can modify and inspect it on Rstudio
-  
-  saveRDS(function_object, file = "./Seurat_analysis.rds")
   
   return(function_object)
 }
 
 print("Clustering function... loaded!")
+
+scCATCH_annotation <- function(parse_object, organism, selected_tissue, plotted_genes_cluster, heatmap_genes, cores){
+
+  ##Now we will use scCATCH to annotate the clusters
+  
+  cat("\nInitiating scCATCH auto-typing of clusters: \n")
+  print(paste("Organism for annotation:", organism, sep = " "))
+  print(paste("Selected tissue for annotation:", selected_tissue, sep = " "))
+  
+  library(scCATCH)
+  
+  plan(multicore, workers = cores)
+  
+  function_object <- parse_object
+  
+  clu_markers <- findmarkergenes(function_object, species = organism) #Here we get the markers for each cluster
+  
+  saveRDS(clu_markers, file = "scCATCH_cluster_markers.rds")
+  
+  #we capture the marker genes for all the clusters:
+  write.csv(clu_markers$clu_markers, 'scCATCH_cluster_markers.csv')
+  #capture.output(paste("Marker genes are:", clu_markers$clu_markers, sep = "\n"), file = "cluster_markers.txt")
+  
+  #We print the violin plot 
+  
+  violin_counter = 1
+  lista_genes_violinplot = clu_markers$clu_markers %>% group_by(cluster) %>% top_n(n = plotted_genes_cluster, wt = avg_logfc) #we select the top n genes for each cluster
+  write.csv(lista_genes_violinplot, 'scCATCH_ViolinPlot.csv') #write the list of cluster markers to a file 
+  lista_genes = lista_genes_violinplot$gene
+  
+  longitud = length(as.list(lista_genes))
+  
+  #Print the violin plot for each marker gene
+  pdf(file = "scCATCH_ViolinPlot.pdf")
+  while(violin_counter <= longitud){
+    print(VlnPlot(function_object, features = lista_genes[violin_counter]))
+    violin_counter <- violin_counter +1
+  }
+  dev.off()
+  
+  #Print the feature plot for each marker gene
+  violin_counter = 1 #we reset the counter
+  pdf(file = "scCATCH_FeaturePlot.pdf")
+  while(violin_counter <= longitud){
+    print(FeaturePlot(function_object, features = lista_genes[violin_counter]))
+    violin_counter <- violin_counter +1
+  }
+  dev.off()
+  
+  #we print the heatmap genes for the clustering
+  
+  topN = clu_markers$clu_markers %>% group_by(cluster) %>% top_n(n = heatmap_genes, wt = avg_logfc) #we select the top n genes for each cluster
+  write.csv(topN, 'scCATCH_Heatmap.csv') #write the list of cluster markers to a file
+  lista_genes_heatmap = lista_genes_violinplot$gene
+  pdf(file = "scCATCH_Heatmap.pdf")
+  print(DoHeatmap(function_object, features = lista_genes_heatmap) + NoLegend())
+  dev.off()
+  
+  #And finally we annotate the clusters
+  clu_ann <- scCATCH(clu_markers$clu_markers, species = organism, tissue = selected_tissue) #And we get the annotation
+  
+  return(clu_ann)
+}
+
+print("scCATCH typing function... loaded!")
+
+
+cluster_marking <- function(parse_object, scCATCH_data, reduction_method){
+  #Now we implement the function where unmatched cell types are typed as Unknown
+  
+  function_object <- parse_object
+  clu_ann <- scCATCH_data #this is the annotation by scCATCH done in the previous function
+  
+  tmp1 <- data.frame(cluster = levels(Idents(function_object)))
+  tmp <- merge(tmp1, clu_ann, by = 'cluster', all = T)
+  tmp$cell_type[which(is.na(tmp$cell_type))] <- "Unclassified"
+
+  #And we assign the clusters
+  
+  new.cluster.ids <- tmp$cell_type
+  names(new.cluster.ids) <- levels(function_object)
+  function_object <- RenameIdents(function_object, new.cluster.ids)
+  
+  #Now we mark the Dimplot with the clusters
+  
+  Dplot2 <- DimPlot(function_object, reduction = reduction_method, label = TRUE, pt.size = 0.5)
+  
+  pdf(file = "UMAP_clustered.pdf")  #Opens the picture
+  print(Dplot2)
+  dev.off()
+  
+  Dplot3 <- DimPlot(function_object, reduction = reduction_method, label = TRUE, pt.size = 0.5) + NoLegend()
+  
+  pdf(file = "UMAP_clustered_nolegend.pdf")
+  print(Dplot3)
+  dev.off()
+  
+  Dplot4 <- DimPlot(function_object, reduction = reduction_method, label = FALSE, pt.size = 0.5)
+  
+  pdf(file = "UMAP_clustered_nolabel.pdf")
+  print(Dplot4)
+  dev.off()
+  
+  saveRDS(function_object, file = "Seurat_analysis_final.rds")
+  
+  cat("RDS file saved. Function terminated\n")
+  
+  return(function_object)
+  
+}
+
+print("scCATCH annotation function... loaded!")
+
 
 #After doing all this tasks we will have several .Rds files with the different steps
 #and the date they were performed. We encourage the users to open any of the files and

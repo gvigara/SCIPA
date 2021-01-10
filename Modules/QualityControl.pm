@@ -23,18 +23,23 @@ sub QualityControl{
 
     #FIRST: we wan to check if FASTQC is installed on the system
 
-    my $fastqc_path = qx/which fastqc/; #With qx we execute bash commands
-
-    if($fastqc_path eq ""){
-        die "\n FASTQC HAS NOT BEEN FOUND ON THE SYSTEM. PLEASE INSTALL IT AND TRY AGAIN. \n"
-    }
-    else{
-        print "\n----- Initiating FASTQC analysis -------\n\n"; 
-    }
-
     #Now we are going to set the working path to the value in $variables{"Working_directory"}
     chdir $variables{"Working_directory"}; #Change the directory to the one specified in the var WD
     print "Working directory has been set to: " . getcwd() . "\n"; #We check the working directory
+
+    #We generate a qcLOG
+    my $log_name = "QualityControl_Log_".$variables{'Actual_date'}.".txt";
+    open(QCLOG, ">".$log_name);
+
+    my $fastqc_path = qx/which fastqc/; #With qx we execute bash commands
+
+    if($fastqc_path eq ""){
+        print QCLOG "\n FASTQC HAS NOT BEEN FOUND ON THE SYSTEM. PLEASE INSTALL IT AND TRY AGAIN. \n";
+        die "\n FASTQC HAS NOT BEEN FOUND ON THE SYSTEM. PLEASE INSTALL IT AND TRY AGAIN. \n";
+    }
+    else{
+        print QCLOG "\n----- Initiating FASTQC analysis -------\n\n"; 
+    }
 
     #After setting the working directory we are going to open it and check for FASTQ files
     #FASTQ files can be either. fastq or fastq.gz
@@ -43,7 +48,7 @@ sub QualityControl{
     #Now we read the files contained in the directory and list them on the output
     @files_on_dir = readdir(WORKINGDIR);
     foreach my $i (@files_on_dir){ #We get the FASTQ files on the directory
-        print $i . "\n";
+        print QCLOG $i . "\n";
         if($i =~ /.*\.fastq$/ or $i =~ /.*\.fastq\.gz$/ or $i =~ /.*\.fq$/ or $i =~ /.*\.fq\.gz$/ or $i=~ /.*\.fastq\.lane\.clean$/ or $i=~ /.*\.fq\.bz2$/ or $i=~ /.*\.fastq\.bz2$/){
             #print $i . "\n";
             push(@fastq_files, $i);
@@ -53,7 +58,7 @@ sub QualityControl{
 
     #Now we check if the Output directory exists. If not, we create it. 
     if(-d $variables{"Output_QC"}){
-        print "\n" . $variables{"Output_QC"} . " already exists. \n";
+        print QCLOG "\n" . $variables{"Output_QC"} . " already exists. \n";
     }
     
 
@@ -63,12 +68,12 @@ sub QualityControl{
     }
     else{
         print "\nInitiating FASTQC analysis\n\n";
-        print "\nThe FASTQ files contained in " . $variables{"Working_directory"} . " are: \n\n";
+        print QCLOG "\nThe FASTQ files contained in " . $variables{"Working_directory"} . " are: \n\n";
         foreach my $i (@fastq_files){
-            print "- " . $i . "\n";
+            print QCLOG "- " . $i . "\n";
             #qx/fastqc -o $variables{"Output_QC"} -t $variables{"Threads"} -f fastq --noextract  $i/;
         }
-        print "\n";
+        print QCLOG "\n";
     }
 
     #Now we perform the analysis on all the files without limit 
@@ -77,22 +82,25 @@ sub QualityControl{
     #Now we execute the FASTQ quality analysis, previous check if there are already analysis files
 
     if(-d $variables{"Output_QC"}){ #If the output directory exists on
-        print "\n" . $variables{"Output_QC"} . " already exists. \n";
+        print QCLOG "\n" . $variables{"Output_QC"} . " already exists. \n";
         chdir($variables{"Output_QC"}); #Change to the analysis directory
         #Now we use glob to check all the files on the directory with the extension .html (output for fastqc)
         my @QC_files_on_dir = glob "*.html";
         if(length(@QC_files_on_dir != 0)){  #If there are files on the directory that correspond to html
+            print QCLOG "\nFASTQC analysis already performed for files on " . $variables{"Working_directory"} . ". Skipping...\n";
             print "\nFASTQC analysis already performed for files on " . $variables{"Working_directory"} . ". Skipping...\n";
         }
         else{ #if the file is empty of html files we have to perform the analysis for QC control
            chdir($variables{"Working_directory"}); #Change again to the working directory
-           qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"QC_threads"} --noextract/;
+           my $fastqc_log = qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"QC_threads"} --noextract/; #Print the output to a variable
+           print QCLOG $fastqc_log . "\n";
         }
     }
     else{
         print "\nCreating output directory for FASTQC analysis... \n\n"; 
         qx/mkdir $variables{"Output_QC"}/; #We create the output directory
-        qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"QC_threads"} --noextract/; #And execute the analysis
+        my $fastqc_log = qx/fastqc $analysis_list -o $variables{"Output_QC"} -t $variables{"QC_threads"} --noextract/; #Print the output to a variable
+        print QCLOG $fastqc_log . "\n";
     }
   
     print "----- QC ANALYSIS FINISHED -----";
@@ -118,7 +126,8 @@ sub QualityControl{
                 #We change the working directory to the one containing the QC analysis HTML file
                 chdir $variables{"Output_QC"};
                 #And we exectue the multiqc analysis using the installed variable
-                qx/$multiqc ./;
+                my $multiqc_log = qx/$multiqc ./;
+                print QCLOG $multiqc_log . "\n";
         }
         else{
             my $python3_pip = qx/which pip3/; #Check if python3-pip is installed on the system
@@ -127,25 +136,18 @@ sub QualityControl{
             generating multiqc file; (Ubuntu: sudo apt-get install python3-pip)\n\n";}
             else{
                 #print $multiqc_path;
-                print "\nMultiQC not found on the system, installing...\n";
-                qx/$multiqc_git/;
-                qx/cd ".\/MultiQC" && pip3 install \./;
-                qx/rm -rf .\/MultiQC/;
-                print "\n\n----- MULTIQC FILE GENERATION -----\n";
-                #We change the working directory to the one containing the QC analysis HTML file
-                chdir $variables{"Output_QC"};
-                #And we exectue the multiqc analysis using the installed variable
-                qx/$multiqc ./;
+                print "\nMultiQC not found on the system, please execute the dependencies.sh script for installation...\n";
             }
         }
 
         print "\nMultiQC containing all analysis generated.\n";
     }
     elsif($variables{"Multi_QC"} eq "no" or $variables{"Multi_QC"} eq "No"){
-        print "\nThe user has decided no to perform a MultiQC analysis. Skipping... \n";
+        print QCLOG "\nThe user has decided no to perform a MultiQC analysis. Skipping... \n";
     }
     else{
         die "\nMultiQC analysis value on config.ini incorrect. Please check config.ini and try again...\n"
     }
+    close QCLOG;
     return "OK";
 }

@@ -21,48 +21,45 @@ sub SeuratAnalysis{
     #For the analysis we create a directory in the current directory with the
     #directory name specified in the variable
 
-    #We determine the day and month in which the analysis is being done
-    my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
-    my @days = qw(Sun Mon Tue Wed Thu Fri Sat Sun);
-    my ($sec,$min,$hour,$month_day,$month,$year,$weekday,$yearday,$isdst) = localtime();
+      
+    my $output_directory = $variables{"Working_directory"}. "/Seurat_analysis\-". $variables{'Actual_date'};
 
-    #This way we can attribute each of the parameters of localtime to a variable
-    #and now we can generate the date for the folder. We have to calculate the
-    #year by adding 1900 to the value in $year, as this value keeps the years that has
-    #passed since 1900
+    #We open the log file
 
-    my $actual_year = 1900 + $year;
-
-    #now we generate the name for the folder
-    #print "$mday\_$months[$mon]\_$actualyear";
-    
-    my $output_directory = $variables{"Working_directory"}. "/Seurat_analysis\-$month_day\_$months[$month]\_$actual_year";
+    my $log_name = $variables{'Working_directory'}."/Seurat_Log_".$variables{'Actual_date'}.".txt";
+    open(QCLOG, ">".$log_name);
 
     #Create the output directory
 
     print "\nGenerating output directory = $output_directory \n";
+    print QCLOG "\nGenerating output directory = $output_directory \n";
     system(qq'mkdir $output_directory');
 
     #Check the current directory from where the script is being executed
     my $R_modules_directory = $variables{"Binaries_directory"} . "/Rscripts";
 
     print "The current directory for R modules is: ".$R_modules_directory . "\n";
+    print QCLOG "The current directory for R modules is: ".$R_modules_directory . "\n";
 
     print "\nStarting R instance for analysis...\n";
+    print QCLOG "\nStarting R instance for analysis...\n";
 
     #Start an R instance and execute everything
     my $R = Statistics::R->new();
 
-    print("Checking dependencies:\n- RCurl\n- httr\n- plotly\n- Seurat\n- patchwork\n- dplyr");
+    print ("Checking dependencies:\n- RCurl\n- httr\n- plotly\n- Seurat\n- patchwork\n- dply\n- scCATCH \n- limma");
+    print QCLOG ("Checking dependencies:\n- RCurl\n- httr\n- plotly\n- Seurat\n- patchwork\n- dply\n- scCATCH \n- limma");
 
     my $output_dependencies = $R -> run_from_file("$R_modules_directory/Dependencies.R");
 
-    print "\n\n" . $output_dependencies . "\n\n";
+    print QCLOG "\n\n" . $output_dependencies . "\n\n";
 
     print("\nDependencies...OK; loading functions! \n");
+    print QCLOG ("\nDependencies...OK; loading functions! \n");
 
     my $output_functions = $R -> run_from_file("$R_modules_directory/Scripts_functions.R");
 
+    print QCLOG "\n\n $output_functions \n\n";
     print "\n\n $output_functions \n\n";
 
     #We add inverted commas to the needed variables, input directory and output directory
@@ -74,42 +71,63 @@ sub SeuratAnalysis{
     my $Seurat_varfeature_selection = "\"$variables{'VarFeature_selection_method'}\"";
     my $Seurat_reduction_method = "\"$variables{'Reduction_method'}\"";
     my $scCATCH_organism = "\"$variables{'Cellranger_organism'}\"";
-    my $scCATCH_tissue = "\"$variables{'scCATCH_tissue'}\"";
+    #my $scCATCH_tissue = "\"$variables{'scCATCH_tissue'}\"";
 
 
     print "\nEXECUTING SEURAT ANALYSIS...\n";
+    print QCLOG "\nEXECUTING SEURAT ANALYSIS...\n";
 
     chdir($output_directory); #We change to the output directory for all the files
 
     #wE execute each of the analysis subroutines individually and print on screen each of the outputs
     my $setup_and_qc = $R -> run("seurat_object <- setup_qc($Seurat_input_directory, $Seurat_output_directory, $Seurat_project_name,
                                 $variables{'Min_cells'}, $variables{'Min_features'}, $variables{'Minimum_subset_features'}, 
-                                $variables{'Maximum_subset_features'},$variables{'Maximum_subset_mitodna'})");
+                                $variables{'Maximum_subset_features'},$variables{'Maximum_subset_mitodna'}, $scCATCH_organism)");
 
+    print "Setup and quality control of the Seurat object... Done! - ". localtime() ."\n"; 
     print "\n$setup_and_qc\n";
+    print QCLOG "\n$setup_and_qc\n";
 
     my $normalization = $R -> run("normalized_object <- Normalization(seurat_object, $Seurat_normalization_method, $variables{'Scale_factor'}, 
                                                         $Seurat_varfeature_selection, $variables{'VarFeature_number'},
                                                         $variables{'Top_variable_features'},  $variables{'QC_threads'})");
     
+    print "Normalization of the Seurat object... Done! - ". localtime() ."\n"; 
+    print QCLOG "\n$normalization\n";
     print "\n$normalization\n";
 
-    my $PCA_and_dimensionality = $R -> run("reduced_object <- PCA_and_dimensionality(normalized_object, $variables{'Print_dimensions'}, 
+    my $PCA = $R -> run("reduced_object <- PCA(normalized_object, $variables{'Print_dimensions'}, 
                                                                 $variables{'Print_features'}, $variables{'VDL_dimensions'}, 
                                                                 $variables{'DHM_dimensions'}, $variables{'DHM_cells'}, $variables{'QC_threads'})");
 
-    print "\n$PCA_and_dimensionality\n";
+    print "Principal component analysis of the Seurat object... Done! - ". localtime() ."\n"; 
+    print QCLOG "\n$PCA\n";
+    print "\n$PCA\n";
 
     my $dimensionality = $R -> run("dimensioned_object <- dimensionality(reduced_object, $variables{'JackStraw_replicates'}, 
                                                             $variables{'JackStraw_score_dimensions'}, $variables{'JackStrawPlot_dimensions'}, $variables{'QC_threads'})");
 
+    print "Dimensionality calculation of the Seurat object... Done! - ". localtime() ."\n"; 
+    print QCLOG "\n$dimensionality\n";
     print "\n$dimensionality\n";
 
     my $clustering = $R -> run("clustered_object <- clustering_and_NLR(dimensioned_object, $variables{'PC_chosen_Neighbors'}, 
-                                                    $variables{'cluster_resolution'}, $Seurat_reduction_method, $scCATCH_organism, $scCATCH_tissue, $variables{'QC_threads'})");
+                                                    $variables{'cluster_resolution'}, $Seurat_reduction_method,  $variables{'QC_threads'})");
 
-    print "\n$clustering\n";
+    print "Clustering of the Seurat object... Done! - ". localtime() ."\n"; 
+    print  QCLOG"\n$clustering\n";
+    print  "\n$clustering\n";
+    
+    my $scCATCH_annotation = $R -> run ("scCATCH_annot_object <- scCATCH_annotation(clustered_object, $scCATCH_organism, $variables{'scCATCH_tissue'}, $variables{'Violin_plot_cluster_genes'}, $variables{'Heatmap_cluster_genes'}, $variables{'QC_threads'})");
+    
+    print "Annotation of clusters with scCATCH... Done! - ". localtime() ."\n"; 
+    print QCLOG "\n$scCATCH_annotation\n";
+    
+    my $cluster_typing = $R -> run ("annotation_clusters <- cluster_marking(clustered_object, scCATCH_annot_object, $Seurat_reduction_method)");
+    
+    print "Typing of clusters... Done! - ". localtime() ."\n"; 
+    print QCLOG "\n$cluster_typing\n";
 
-
+    close QCLOG;
     #print "\n$seurat_analysis\n"; 
 }
