@@ -13,7 +13,7 @@ automation of analysis on single cell RNA seq dataset, based on 10X chromium tec
 acts as a principal pipeline communicating several Perl modules, written for different specific tasks, alongside with an R script written for automatic analysis
 of the expression matrices obtained throught the process.
 
-[My image](gvigara.github.com/SCIPA/img/SCIPA_diagram.tif)
+[My image](https://github.com/gvigara/SCIPA/tree/master/img/CIPA_diagram.tif)
 
 ## Installation and usage
 
