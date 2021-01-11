@@ -14,7 +14,7 @@ acts as a principal pipeline communicating several Perl modules, written for dif
 of the expression matrices obtained throught the process.
 
 <p align="center">
-  <img src="https://github.com/gvigara/SCIPA/tree/master/img/SCIPA_diagram.tif">
+  <img src="https://github.com/gvigara/SCIPA/tree/master/img/Image_1.jpg">
 </p>
 
 ## Installation and usage
