@@ -17,14 +17,27 @@ of the expression matrices obtained throught the process.
   <img src="https://github.com/gvigara/SCIPA/tree/master/img/Image_1.jpg">
 </p>
 
+## Download
+
+To download the software, please download the repo and uncompress it on the desired output folder:
+
+```
+$ curl -L -O https://github.com/gvigara/SCIPA
+$ unzip SCIPA
+$ cd SCIPA
+```
+
+When in the folder you will see several files. The config.ini file will be the configuration file where all the parameters are set. Please follow inside instructions for each parameter. 
+
 ## Installation and usage
 
 First use the dependencies script to install all necessary dependencies. This script will ask for the super-user password in order to install them. If the user wants
 to install manually the dependencies just open the file on a text editor (g.e Kate) and execute all the commands manually. 
 
-`$ chmod +x dependencies.sh`
-
-`$ sudo ./dependencies.sh`
+```
+$ chmod +x dependencies.sh
+$ sudo ./dependencies.sh
+```
 
 Dependencies include: 
 
@@ -48,3 +61,5 @@ In the case that there is any problem during R execution you may have to add you
 And after that give reading permisions to the library folder:
 
 `$ sudo chmod o+w /usr/local/lib/R/site-library`
+
+The output of each analysis will be generated on a dedicated folder on the working directory designated on the config.ini file. The Working directory is defined as the directory where the FASTQ files are located, and will be condisered the root directory for the job. 
