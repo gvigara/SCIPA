@@ -47,7 +47,7 @@ Dependencies include:
  - multiqc (from pip)
  - libcurl4-openssl-dev
  - libssl-dev
- - r-base-core (for those who doesn't have R already installed)
+ - r-base-core (for those who doesn't have R already installed, you can also download it form [R](https://www.r-project.org/))
  - r-cran-httr
  - r-cran-seurat
  - r-cran-dplyr
@@ -62,4 +62,15 @@ And after that give reading permisions to the library folder:
 
 `$ sudo chmod o+w /usr/local/lib/R/site-library`
 
+A major need is the download of cellranger form 10X genomics webpage. The user has to uncompress cellranger on the wanted directory and then locate this directory on the config.ini file. Cellranger can be downloaded from this [link](https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/latest)
 The output of each analysis will be generated on a dedicated folder on the working directory designated on the config.ini file. The Working directory is defined as the directory where the FASTQ files are located, and will be condisered the root directory for the job. 
+
+## Whole analysis process
+
+This is meant to be an example on how to analyze a small sample, like PBMC 1k V3, downloaded from [10X genomics webpage](https://support.10xgenomics.com/single-cell-gene-expression/datasets/3.0.0/pbmc_1k_v3). This .zip file has to be uncompressed on a directory that will be the root directory for our work (designed as Working directory on the config.ini file). 
+
+Afterwards we have to set all the parameters on the config.ini file, stablishing the following: 
+
+- Directory where Cellranger is located
+- Type of organism (Human/Mouse). In case of Human selection, choose 1 for GRCh38 or 2 for HG19. 
+- 
